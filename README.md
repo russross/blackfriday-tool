@@ -31,6 +31,7 @@ Here is the help message for the tool:
       -page=false: Generate a standalone HTML page (implies -latex=false)
       -repeat=1: Process the input multiple times (for benchmarking)
       -smartypants=true: Apply smartypants-style substitutions
+	  -spaceheaders=false: Strict handling of prefix header rules
       -toc=false: Generate a table of contents (implies -latex=false)
       -toconly=false: Generate a table of contents only (implies -toc)
       -xhtml=true: Use XHTML-style tags in HTML output
