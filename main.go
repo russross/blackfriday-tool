@@ -29,7 +29,7 @@ const DEFAULT_TITLE = ""
 
 func main() {
 	// parse command-line options
-	var page, toc, toconly, xhtml, latex, smartypants, latexdashes, fractions bool
+	var page, toc, toconly, xhtml, latex, smartypants, latexdashes, fractions, spaceheaders bool
 	var css, cpuprofile string
 	var repeat int
 	flag.BoolVar(&page, "page", false,
@@ -48,6 +48,8 @@ func main() {
 		"Use LaTeX-style dash rules for smartypants")
 	flag.BoolVar(&fractions, "fractions", true,
 		"Use improved fraction rules for smartypants")
+	flag.BoolVar(&spaceheaders, "spaceheaders", false,
+		"Strict handling of prefix header rules")
 	flag.StringVar(&css, "css", "",
 		"Link to a CSS stylesheet (implies -page)")
 	flag.StringVar(&cpuprofile, "cpuprofile", "",
@@ -119,7 +121,10 @@ func main() {
 	extensions |= blackfriday.EXTENSION_FENCED_CODE
 	extensions |= blackfriday.EXTENSION_AUTOLINK
 	extensions |= blackfriday.EXTENSION_STRIKETHROUGH
-	extensions |= blackfriday.EXTENSION_SPACE_HEADERS
+
+	if spaceheaders {
+		extensions |= blackfriday.EXTENSION_SPACE_HEADERS
+	}
 
 	var renderer blackfriday.Renderer
 	if latex {
