@@ -29,8 +29,8 @@ const DEFAULT_TITLE = ""
 
 func main() {
 	// parse command-line options
-	var page, toc, toconly, xhtml, latex, smartypants, latexdashes, fractions bool
-	var css, cpuprofile string
+	var page, toc, toconly, xhtml, smartypants, latexdashes, fractions bool
+	var css, cpuprofile, renderformat string
 	var repeat int
 	flag.BoolVar(&page, "page", false,
 		"Generate a standalone HTML page (implies -latex=false)")
@@ -40,8 +40,8 @@ func main() {
 		"Generate a table of contents only (implies -toc)")
 	flag.BoolVar(&xhtml, "xhtml", true,
 		"Use XHTML-style tags in HTML output")
-	flag.BoolVar(&latex, "latex", false,
-		"Generate LaTeX output instead of HTML")
+	flag.StringVar(&renderformat, "format", "html",
+		"render html, latex, or deck")
 	flag.BoolVar(&smartypants, "smartypants", true,
 		"Apply smartypants-style substitutions")
 	flag.BoolVar(&latexdashes, "latexdashes", true,
@@ -72,14 +72,8 @@ func main() {
 	if css != "" {
 		page = true
 	}
-	if page {
-		latex = false
-	}
 	if toconly {
 		toc = true
-	}
-	if toc {
-		latex = false
 	}
 
 	// turn on profiling?
@@ -122,10 +116,17 @@ func main() {
 	extensions |= blackfriday.EXTENSION_SPACE_HEADERS
 
 	var renderer blackfriday.Renderer
-	if latex {
+
+	switch renderformat {
+	case "latex":
 		// render the data into LaTeX
+		page = false
 		renderer = blackfriday.LatexRenderer(0)
-	} else {
+		// render the data into deck
+	case "deck":
+		page = true
+		renderer = blackfriday.DeckRenderer(0)
+	default:
 		// render the data into HTML
 		htmlFlags := 0
 		if xhtml {
