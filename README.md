@@ -25,8 +25,8 @@ Here is the help message for the tool:
     Options:
       -cpuprofile="": Write cpu profile to a file
       -css="": Link to a CSS stylesheet (implies -page)
+      -format=html: output format: html, latex, or deck
       -fractions=true: Use improved fraction rules for smartypants
-      -latex=false: Generate LaTeX output instead of HTML
       -latexdashes=true: Use LaTeX-style dash rules for smartypants
       -page=false: Generate a standalone HTML page (implies -latex=false)
       -repeat=1: Process the input multiple times (for benchmarking)
