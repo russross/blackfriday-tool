@@ -164,7 +164,7 @@ func main() {
 	var out *os.File
 	if len(args) == 2 {
 		if out, err = os.Create(args[1]); err != nil {
-			fmt.Fprintf(os.Stderr, "Error creating %s: %v", args[1], err)
+			fmt.Fprintf(os.Stderr, "Error creating %s: %v\n", args[1], err)
 			os.Exit(-1)
 		}
 		defer out.Close()
