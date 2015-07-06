@@ -190,9 +190,6 @@ func getTitle(input []byte) string {
 	if i >= len(input) {
 		return DEFAULT_TITLE
 	}
-	if input[i] == '\r' && i+1 < len(input) && input[i+1] == '\n' {
-		i++
-	}
 
 	// find the first line
 	start := i
