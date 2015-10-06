@@ -29,7 +29,7 @@ const DEFAULT_TITLE = ""
 
 func main() {
 	// parse command-line options
-	var page, toc, toconly, xhtml, latex, smartypants, latexdashes, fractions bool
+	var page, toc, toconly, mdtoc, xhtml, latex, smartypants, latexdashes, fractions bool
 	var css, cpuprofile string
 	var repeat int
 	flag.BoolVar(&page, "page", false,
@@ -38,6 +38,8 @@ func main() {
 		"Generate a table of contents (implies -latex=false)")
 	flag.BoolVar(&toconly, "toconly", false,
 		"Generate a table of contents only (implies -toc)")
+	flag.BoolVar(&mdtoc, "mdtoc", false,
+		"Generate a MarkDown table of contents only (implies -toc -toconly -latex=false)")
 	flag.BoolVar(&xhtml, "xhtml", true,
 		"Use XHTML-style tags in HTML output")
 	flag.BoolVar(&latex, "latex", false,
@@ -79,6 +81,11 @@ func main() {
 		toc = true
 	}
 	if toc {
+		latex = false
+	}
+	if mdtoc {
+		toc = true
+		toconly = true
 		latex = false
 	}
 
@@ -144,6 +151,9 @@ func main() {
 		if page {
 			htmlFlags |= blackfriday.HTML_COMPLETE_PAGE
 			title = getTitle(input)
+		}
+		if mdtoc {
+			htmlFlags |= blackfriday.HTML_TOC_MD
 		}
 		if toconly {
 			htmlFlags |= blackfriday.HTML_OMIT_CONTENTS
