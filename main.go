@@ -177,7 +177,7 @@ func main() {
 		}
 		sanitize := sanitizeMap[anchorstyle]
 		if sanitize == nil {
-			fmt.Fprintln(os.Stderr, "Not a valid -anchorstyle: %v", anchorstyle)
+			fmt.Fprintln(os.Stderr, "Not a valid -anchorstyle:", anchorstyle)
 			os.Exit(-1)
 		}
 
