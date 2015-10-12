@@ -181,8 +181,8 @@ func main() {
 			os.Exit(-1)
 		}
 
-		renderer = blackfriday.HtmlRenderer(htmlFlags, title, css, sanitize)
-		//renderer = blackfriday.HtmlRenderer(htmlFlags, title, css, nil)
+		renderer = blackfriday.HtmlRendererWithParameters(htmlFlags, title, css,
+			blackfriday.HtmlRendererParameters{SanitizedAnchorNameOverride: sanitize})
 	}
 
 	// parse and render
