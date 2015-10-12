@@ -23,6 +23,8 @@ import (
 	"os"
 	"runtime/pprof"
 	"strings"
+
+	"github.com/shurcooL/sanitized_anchor_name"
 )
 
 const DEFAULT_TITLE = ""
@@ -30,7 +32,7 @@ const DEFAULT_TITLE = ""
 func main() {
 	// parse command-line options
 	var page, toc, toconly, mdtoc, xhtml, latex, smartypants, latexdashes, fractions bool
-	var css, cpuprofile string
+	var css, cpuprofile, anchorstyle string
 	var repeat int
 	flag.BoolVar(&page, "page", false,
 		"Generate a standalone HTML page (implies -latex=false)")
@@ -40,6 +42,8 @@ func main() {
 		"Generate a table of contents only (implies -toc)")
 	flag.BoolVar(&mdtoc, "mdtoc", false,
 		"Generate a MarkDown table of contents only (implies -toc -toconly -latex=false)")
+	flag.StringVar(&anchorstyle, "anchorstyle", "gitlab",
+		"When used with -mdtoc selects compatibility: gitlab, github, legacy")
 	flag.BoolVar(&xhtml, "xhtml", true,
 		"Use XHTML-style tags in HTML output")
 	flag.BoolVar(&latex, "latex", false,
@@ -161,7 +165,24 @@ func main() {
 		if toc {
 			htmlFlags |= blackfriday.HTML_TOC
 		}
-		renderer = blackfriday.HtmlRenderer(htmlFlags, title, css)
+
+		// Determine which anchor generator to use.
+		sanitizeMap := map[string]func(string) string{
+			"legacy": sanitized_anchor_name.Create,
+			"github": sanitized_anchor_name.CreateGitHub,
+			"gitlab": sanitized_anchor_name.CreateGitLab,
+			// undocumented aliases:
+			"hub": sanitized_anchor_name.CreateGitHub,
+			"lab": sanitized_anchor_name.CreateGitLab,
+		}
+		sanitize := sanitizeMap[anchorstyle]
+		if sanitize == nil {
+			fmt.Fprintln(os.Stderr, "Not a valid -anchorstyle: %v", anchorstyle)
+			os.Exit(-1)
+		}
+
+		renderer = blackfriday.HtmlRenderer(htmlFlags, title, css, sanitize)
+		//renderer = blackfriday.HtmlRenderer(htmlFlags, title, css, nil)
 	}
 
 	// parse and render
