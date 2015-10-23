@@ -18,18 +18,19 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/russross/blackfriday"
 	"io/ioutil"
 	"os"
 	"runtime/pprof"
 	"strings"
+
+	"github.com/oec/blackfriday"
 )
 
 const DEFAULT_TITLE = ""
 
 func main() {
 	// parse command-line options
-	var page, toc, toconly, xhtml, latex, smartypants, latexdashes, fractions bool
+	var page, toc, toconly, xhtml, latex, smartypants, latexdashes, fractions, embed bool
 	var css, cpuprofile string
 	var repeat int
 	flag.BoolVar(&page, "page", false,
@@ -50,6 +51,8 @@ func main() {
 		"Use improved fraction rules for smartypants")
 	flag.StringVar(&css, "css", "",
 		"Link to a CSS stylesheet (implies -page)")
+	flag.BoolVar(&embed, "embed", true,
+		"embed css into HTML (instead of linking), requires -css")
 	flag.StringVar(&cpuprofile, "cpuprofile", "",
 		"Write cpu profile to a file")
 	flag.IntVar(&repeat, "repeat", 1,
@@ -151,6 +154,10 @@ func main() {
 		if toc {
 			htmlFlags |= blackfriday.HTML_TOC
 		}
+		if embed {
+			htmlFlags |= blackfriday.HTML_EMBED_CSS
+		}
+
 		renderer = blackfriday.HtmlRenderer(htmlFlags, title, css)
 	}
 
