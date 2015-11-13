@@ -30,7 +30,7 @@ const DEFAULT_TITLE = ""
 func main() {
 	// parse command-line options
 	var page, toc, toconly, xhtml, latex, smartypants, latexdashes, fractions bool
-	var css, cpuprofile string
+	var css, cpuprofile, templateFile, templatewithtitle string
 	var repeat int
 	flag.BoolVar(&page, "page", false,
 		"Generate a standalone HTML page (implies -latex=false)")
@@ -50,6 +50,8 @@ func main() {
 		"Use improved fraction rules for smartypants")
 	flag.StringVar(&css, "css", "",
 		"Link to a CSS stylesheet (implies -page)")
+	flag.StringVar(&templateFile, "template","",
+		"Template file to add the content in")
 	flag.StringVar(&cpuprofile, "cpuprofile", "",
 		"Write cpu profile to a file")
 	flag.IntVar(&repeat, "repeat", 1,
@@ -145,6 +147,15 @@ func main() {
 			htmlFlags |= blackfriday.HTML_COMPLETE_PAGE
 			title = getTitle(input)
 		}
+		if templateFile != "" {
+			var templateString []byte
+			if templateString, err = ioutil.ReadFile(templateFile); err != nil {
+				fmt.Fprintln(os.Stderr, "Error reading from", templateFile, ":", err)
+				os.Exit(-1)
+			}
+			title = getTitle(input)
+			templatewithtitle = strings.Replace(string(templateString[:]),"{{title}}",title,-1)
+		}
 		if toconly {
 			htmlFlags |= blackfriday.HTML_OMIT_CONTENTS
 		}
@@ -158,6 +169,10 @@ func main() {
 	var output []byte
 	for i := 0; i < repeat; i++ {
 		output = blackfriday.Markdown(input, renderer, extensions)
+	}
+	
+	if templatewithtitle != "" {
+		output = []byte(strings.Replace(templatewithtitle,"{{content}}",string(output[:]),-1))
 	}
 
 	// output the result
