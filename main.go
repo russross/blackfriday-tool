@@ -18,12 +18,13 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/russross/blackfriday"
 	"io/ioutil"
 	"os"
 	"runtime/pprof"
 	"strings"
 
+	"github.com/TomOnTime/markdownutils"
+	"github.com/russross/blackfriday"
 	"github.com/shurcooL/sanitized_anchor_name"
 )
 
@@ -169,11 +170,11 @@ func main() {
 		// Determine which anchor generator to use.
 		sanitizeMap := map[string]func(string) string{
 			"legacy": sanitized_anchor_name.Create,
-			"github": sanitized_anchor_name.CreateGitHub,
-			"gitlab": sanitized_anchor_name.CreateGitLab,
+			"github": markdownutils.CreateGitHubAnchor,
+			"gitlab": markdownutils.CreateGitLabAnchor,
 			// undocumented aliases:
-			"hub": sanitized_anchor_name.CreateGitHub,
-			"lab": sanitized_anchor_name.CreateGitLab,
+			"hub": markdownutils.CreateGitHubAnchor,
+			"lab": markdownutils.CreateGitLabAnchor,
 		}
 		sanitize := sanitizeMap[anchorstyle]
 		if sanitize == nil {
