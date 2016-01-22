@@ -42,7 +42,7 @@ func main() {
 	flag.BoolVar(&toconly, "toconly", false,
 		"Generate a table of contents only (implies -toc)")
 	flag.BoolVar(&mdtoc, "mdtoc", false,
-		"Generate a MarkDown table of contents only (implies -toc -toconly -latex=false)")
+		"Generate a Markdown table of contents only (implies -toc -toconly -latex=false)")
 	flag.StringVar(&anchorstyle, "anchorstyle", "gitlab",
 		"When used with -mdtoc selects compatibility: gitlab, github, legacy")
 	flag.BoolVar(&xhtml, "xhtml", true,
