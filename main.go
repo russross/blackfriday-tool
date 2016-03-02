@@ -23,15 +23,21 @@ import (
 	"os"
 	"runtime/pprof"
 	"strings"
+	"path/filepath"
 )
 
 const DEFAULT_TITLE = ""
 
+type Settings struct {
+	latex, smartypants bool
+	css, templateText string
+	repeat,extensions,htmlFlags int
+}
 func main() {
+	var page, toc, toconly, xhtml, latexdashes, fractions bool
+	var bf Settings
+	var cpuprofile, templateFile string
 	// parse command-line options
-	var page, toc, toconly, xhtml, latex, smartypants, latexdashes, fractions bool
-	var css, cpuprofile, templateFile, templatewithtitle string
-	var repeat int
 	flag.BoolVar(&page, "page", false,
 		"Generate a standalone HTML page (implies -latex=false)")
 	flag.BoolVar(&toc, "toc", false,
@@ -40,21 +46,21 @@ func main() {
 		"Generate a table of contents only (implies -toc)")
 	flag.BoolVar(&xhtml, "xhtml", true,
 		"Use XHTML-style tags in HTML output")
-	flag.BoolVar(&latex, "latex", false,
+	flag.BoolVar(&bf.latex, "latex", false,
 		"Generate LaTeX output instead of HTML")
-	flag.BoolVar(&smartypants, "smartypants", true,
+	flag.BoolVar(&bf.smartypants, "smartypants", true,
 		"Apply smartypants-style substitutions")
 	flag.BoolVar(&latexdashes, "latexdashes", true,
 		"Use LaTeX-style dash rules for smartypants")
 	flag.BoolVar(&fractions, "fractions", true,
 		"Use improved fraction rules for smartypants")
-	flag.StringVar(&css, "css", "",
+	flag.StringVar(&bf.css, "css", "",
 		"Link to a CSS stylesheet (implies -page)")
 	flag.StringVar(&templateFile, "template","",
 		"Template file to add the content in")
 	flag.StringVar(&cpuprofile, "cpuprofile", "",
 		"Write cpu profile to a file")
-	flag.IntVar(&repeat, "repeat", 1,
+	flag.IntVar(&bf.repeat, "repeat", 1,
 		"Process the input multiple times (for benchmarking)")
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Blackfriday Markdown Processor v"+blackfriday.VERSION+
@@ -71,17 +77,17 @@ func main() {
 	flag.Parse()
 
 	// enforce implied options
-	if css != "" {
+	if bf.css != "" {
 		page = true
 	}
 	if page {
-		latex = false
+		bf.latex = false
 	}
 	if toconly {
 		toc = true
 	}
 	if toc {
-		latex = false
+		bf.latex = false
 	}
 
 	// turn on profiling?
@@ -94,58 +100,34 @@ func main() {
 		defer pprof.StopCPUProfile()
 	}
 
-	// read the input
-	var input []byte
-	var err error
-	args := flag.Args()
-	switch len(args) {
-	case 0:
-		if input, err = ioutil.ReadAll(os.Stdin); err != nil {
-			fmt.Fprintln(os.Stderr, "Error reading from Stdin:", err)
-			os.Exit(-1)
-		}
-	case 1, 2:
-		if input, err = ioutil.ReadFile(args[0]); err != nil {
-			fmt.Fprintln(os.Stderr, "Error reading from", args[0], ":", err)
-			os.Exit(-1)
-		}
-	default:
-		flag.Usage()
-		os.Exit(-1)
-	}
 
 	// set up options
-	extensions := 0
-	extensions |= blackfriday.EXTENSION_NO_INTRA_EMPHASIS
-	extensions |= blackfriday.EXTENSION_TABLES
-	extensions |= blackfriday.EXTENSION_FENCED_CODE
-	extensions |= blackfriday.EXTENSION_AUTOLINK
-	extensions |= blackfriday.EXTENSION_STRIKETHROUGH
-	extensions |= blackfriday.EXTENSION_SPACE_HEADERS
+	bf.extensions = 0
+	bf.extensions |= blackfriday.EXTENSION_NO_INTRA_EMPHASIS
+	bf.extensions |= blackfriday.EXTENSION_TABLES
+	bf.extensions |= blackfriday.EXTENSION_FENCED_CODE
+	bf.extensions |= blackfriday.EXTENSION_AUTOLINK
+	bf.extensions |= blackfriday.EXTENSION_STRIKETHROUGH
+	bf.extensions |= blackfriday.EXTENSION_SPACE_HEADERS
 
-	var renderer blackfriday.Renderer
-	if latex {
-		// render the data into LaTeX
-		renderer = blackfriday.LatexRenderer(0)
-	} else {
+	bf.htmlFlags = 0
+	var err error
+	if !bf.latex {
 		// render the data into HTML
-		htmlFlags := 0
 		if xhtml {
-			htmlFlags |= blackfriday.HTML_USE_XHTML
+			bf.htmlFlags |= blackfriday.HTML_USE_XHTML
 		}
-		if smartypants {
-			htmlFlags |= blackfriday.HTML_USE_SMARTYPANTS
+		if bf.smartypants {
+			bf.htmlFlags |= blackfriday.HTML_USE_SMARTYPANTS
 		}
 		if fractions {
-			htmlFlags |= blackfriday.HTML_SMARTYPANTS_FRACTIONS
+			bf.htmlFlags |= blackfriday.HTML_SMARTYPANTS_FRACTIONS
 		}
 		if latexdashes {
-			htmlFlags |= blackfriday.HTML_SMARTYPANTS_LATEX_DASHES
+			bf.htmlFlags |= blackfriday.HTML_SMARTYPANTS_LATEX_DASHES
 		}
-		title := ""
 		if page {
-			htmlFlags |= blackfriday.HTML_COMPLETE_PAGE
-			title = getTitle(input)
+			bf.htmlFlags |= blackfriday.HTML_COMPLETE_PAGE
 		}
 		if templateFile != "" {
 			var templateString []byte
@@ -153,22 +135,80 @@ func main() {
 				fmt.Fprintln(os.Stderr, "Error reading from", templateFile, ":", err)
 				os.Exit(-1)
 			}
-			title = getTitle(input)
-			templatewithtitle = strings.Replace(string(templateString[:]),"{{title}}",title,-1)
+			bf.templateText = string(templateString[:])
 		}
 		if toconly {
-			htmlFlags |= blackfriday.HTML_OMIT_CONTENTS
+			bf.htmlFlags |= blackfriday.HTML_OMIT_CONTENTS
 		}
 		if toc {
-			htmlFlags |= blackfriday.HTML_TOC
+			bf.htmlFlags |= blackfriday.HTML_TOC
 		}
-		renderer = blackfriday.HtmlRenderer(htmlFlags, title, css)
+	}
+
+	// read the input
+	var input []byte
+	args := flag.Args()
+	switch len(args) {
+	case 0:
+		if input, err = ioutil.ReadAll(os.Stdin); err != nil {
+			fmt.Fprintln(os.Stderr, "Error reading from Stdin:", err)
+			os.Exit(-1)
+		}
+		renderContent(bf,input,"","")
+	case 1, 2:
+		var fileNames []string
+		var fileName string
+		fileNames, err = filepath.Glob(args[0])
+		for _, fileName = range fileNames{
+			//fmt.Println(fileName)
+			if input, err = ioutil.ReadFile(fileName); err != nil {
+				fmt.Fprintln(os.Stderr, "Error reading from", fileName, ":", err)
+				os.Exit(-1)
+			}
+			if len(fileName) > 3 && strings.ToLower(fileName[len(fileName)-3:len(fileName)]) == ".md" {
+				fileName = fileName[:len(fileName)-3]
+			}
+			_,fileName = filepath.Split(fileName)
+			outputFileName := ""
+			if (len(args) == 2){
+				if bf.latex {
+					outputFileName = args[1] + fileName + ".tex"
+				} else {
+					outputFileName = args[1] + fileName + ".html"
+				}
+			}
+			
+			renderContent(bf,input,outputFileName,fileName)
+		}
+	default:
+		flag.Usage()
+		os.Exit(-1)
+	}
+}
+func renderContent(bf Settings, input []byte, outputFileName string, fileName string){
+	var renderer blackfriday.Renderer
+	var templatewithtitle string
+	if bf.latex {
+		// render the data into LaTeX
+		renderer = blackfriday.LatexRenderer(0)
+	} else {
+		// render the data into HTML
+		title := DEFAULT_TITLE
+		if (bf.htmlFlags | blackfriday.HTML_COMPLETE_PAGE == blackfriday.HTML_COMPLETE_PAGE) {
+			title = getTitle(input)
+		}
+		if bf.templateText != "" {
+			title = getTitle(input)
+			templatewithtitle = strings.Replace(bf.templateText,"{{title}}",title,-1)
+			templatewithtitle = strings.Replace(templatewithtitle,"{{filename}}",fileName,-1)
+		}
+		renderer = blackfriday.HtmlRenderer(bf.htmlFlags, title, bf.css)
 	}
 
 	// parse and render
 	var output []byte
-	for i := 0; i < repeat; i++ {
-		output = blackfriday.Markdown(input, renderer, extensions)
+	for i := 0; i < bf.repeat; i++ {
+		output = blackfriday.Markdown(input, renderer, bf.extensions)
 	}
 	
 	if templatewithtitle != "" {
@@ -177,9 +217,10 @@ func main() {
 
 	// output the result
 	var out *os.File
-	if len(args) == 2 {
-		if out, err = os.Create(args[1]); err != nil {
-			fmt.Fprintf(os.Stderr, "Error creating %s: %v", args[1], err)
+	var err error
+	if outputFileName != "" {
+		if out, err = os.Create(outputFileName); err != nil {
+			fmt.Fprintf(os.Stderr, "Error creating %s: %v", outputFileName, err)
 			os.Exit(-1)
 		}
 		defer out.Close()
