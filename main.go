@@ -2,7 +2,7 @@
 // Blackfriday Markdown Processor
 // Available at http://github.com/russross/blackfriday
 //
-// Copyright © 2011 Russ Ross <russ@russross.com>.
+// Copyright © 2011-2016 Russ Ross <russ@russross.com> and contributors.
 // Distributed under the Simplified BSD License.
 // See README.md for details.
 //
@@ -18,19 +18,22 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/russross/blackfriday"
 	"io/ioutil"
 	"os"
 	"runtime/pprof"
 	"strings"
+
+	"github.com/TomOnTime/markdownutils"
+	"github.com/russross/blackfriday"
+	"github.com/shurcooL/sanitized_anchor_name"
 )
 
 const DEFAULT_TITLE = ""
 
 func main() {
 	// parse command-line options
-	var page, toc, toconly, xhtml, latex, smartypants, latexdashes, fractions bool
-	var css, cpuprofile string
+	var page, toc, toconly, mdtoc, xhtml, latex, smartypants, latexdashes, fractions, embed bool
+	var css, cpuprofile, anchorstyle string
 	var repeat int
 	flag.BoolVar(&page, "page", false,
 		"Generate a standalone HTML page (implies -latex=false)")
@@ -38,6 +41,10 @@ func main() {
 		"Generate a table of contents (implies -latex=false)")
 	flag.BoolVar(&toconly, "toconly", false,
 		"Generate a table of contents only (implies -toc)")
+	flag.BoolVar(&mdtoc, "mdtoc", false,
+		"Generate a Markdown table of contents only (implies -toc -toconly -latex=false)")
+	flag.StringVar(&anchorstyle, "anchorstyle", "gitlab",
+		"When used with -mdtoc selects compatibility: gitlab, github, legacy")
 	flag.BoolVar(&xhtml, "xhtml", true,
 		"Use XHTML-style tags in HTML output")
 	flag.BoolVar(&latex, "latex", false,
@@ -50,6 +57,8 @@ func main() {
 		"Use improved fraction rules for smartypants")
 	flag.StringVar(&css, "css", "",
 		"Link to a CSS stylesheet (implies -page)")
+	flag.BoolVar(&css, "embed", true,
+		"Embed CSS stylesheet instead of linking (requires -css)")
 	flag.StringVar(&cpuprofile, "cpuprofile", "",
 		"Write cpu profile to a file")
 	flag.IntVar(&repeat, "repeat", 1,
@@ -57,7 +66,7 @@ func main() {
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Blackfriday Markdown Processor v"+blackfriday.VERSION+
 			"\nAvailable at http://github.com/russross/blackfriday\n\n"+
-			"Copyright © 2011 Russ Ross <russ@russross.com>\n"+
+			"Copyright © 2011-2015 Russ Ross <russ@russross.com> and contributors\n"+
 			"Distributed under the Simplified BSD License\n"+
 			"See website for details\n\n"+
 			"Usage:\n"+
@@ -79,6 +88,11 @@ func main() {
 		toc = true
 	}
 	if toc {
+		latex = false
+	}
+	if mdtoc {
+		toc = true
+		toconly = true
 		latex = false
 	}
 
@@ -120,6 +134,8 @@ func main() {
 	extensions |= blackfriday.EXTENSION_AUTOLINK
 	extensions |= blackfriday.EXTENSION_STRIKETHROUGH
 	extensions |= blackfriday.EXTENSION_SPACE_HEADERS
+	extensions |= blackfriday.EXTENSION_HEADER_IDS
+	extensions |= blackfriday.EXTENSION_FOOTNOTES
 
 	var renderer blackfriday.Renderer
 	if latex {
@@ -145,13 +161,33 @@ func main() {
 			htmlFlags |= blackfriday.HTML_COMPLETE_PAGE
 			title = getTitle(input)
 		}
+		if mdtoc {
+			htmlFlags |= blackfriday.HTML_TOC_MD
+		}
 		if toconly {
 			htmlFlags |= blackfriday.HTML_OMIT_CONTENTS
 		}
 		if toc {
 			htmlFlags |= blackfriday.HTML_TOC
 		}
-		renderer = blackfriday.HtmlRenderer(htmlFlags, title, css)
+		if embed {
+			htmlFlags |= blackfriday.HTML_EMBED_CSS
+		}
+
+		// Determine which anchor generator to use.
+		sanitizeMap := map[string]func(string) string{
+			"legacy": sanitized_anchor_name.Create,
+			"github": markdownutils.CreateGitHubAnchor,
+			"gitlab": markdownutils.CreateGitLabAnchor,
+		}
+		sanitize := sanitizeMap[anchorstyle]
+		if sanitize == nil {
+			fmt.Fprintln(os.Stderr, "Not a valid -anchorstyle:", anchorstyle)
+			os.Exit(-1)
+		}
+
+		renderer = blackfriday.HtmlRendererWithParameters(htmlFlags, title, css,
+			blackfriday.HtmlRendererParameters{SanitizedAnchorNameOverride: sanitize})
 	}
 
 	// parse and render
