@@ -15,7 +15,7 @@ Here is the help message for the tool:
     Blackfriday Markdown Processor v1.1
     Available at http://github.com/russross/blackfriday
 
-    Copyright © 2011 Russ Ross <russ@russross.com>
+    Copyright © 2011-2016 Russ Ross <russ@russross.com> and contributors.
     Distributed under the Simplified BSD License
     See website for details
 
@@ -25,6 +25,7 @@ Here is the help message for the tool:
     Options:
       -cpuprofile="": Write cpu profile to a file
       -css="": Link to a CSS stylesheet (implies -page)
+      -embed=false: Embed CSS stylesheet instead of linking (requires -css)
       -fractions=true: Use improved fraction rules for smartypants
       -latex=false: Generate LaTeX output instead of HTML
       -latexdashes=true: Use LaTeX-style dash rules for smartypants
@@ -41,7 +42,7 @@ License
 
 Blackfriday is distributed under the Simplified BSD License:
 
-> Copyright © 2011 Russ Ross. All rights reserved.
+> Copyright © 2011-2016 Russ Ross and contributors. All rights reserved.
 > 
 > Redistribution and use in source and binary forms, with or without modification, are
 > permitted provided that the following conditions are met:

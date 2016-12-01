@@ -2,7 +2,7 @@
 // Blackfriday Markdown Processor
 // Available at http://github.com/russross/blackfriday
 //
-// Copyright © 2011 Russ Ross <russ@russross.com>.
+// Copyright © 2011-2016 Russ Ross <russ@russross.com> and contributors.
 // Distributed under the Simplified BSD License.
 // See README.md for details.
 //
@@ -32,7 +32,7 @@ const DEFAULT_TITLE = ""
 
 func main() {
 	// parse command-line options
-	var page, toc, toconly, mdtoc, xhtml, latex, smartypants, latexdashes, fractions bool
+	var page, toc, toconly, mdtoc, xhtml, latex, smartypants, latexdashes, fractions, embed bool
 	var css, cpuprofile, anchorstyle string
 	var repeat int
 	flag.BoolVar(&page, "page", false,
@@ -57,6 +57,8 @@ func main() {
 		"Use improved fraction rules for smartypants")
 	flag.StringVar(&css, "css", "",
 		"Link to a CSS stylesheet (implies -page)")
+	flag.BoolVar(&css, "embed", true,
+		"Embed CSS stylesheet instead of linking (requires -css)")
 	flag.StringVar(&cpuprofile, "cpuprofile", "",
 		"Write cpu profile to a file")
 	flag.IntVar(&repeat, "repeat", 1,
@@ -64,7 +66,7 @@ func main() {
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Blackfriday Markdown Processor v"+blackfriday.VERSION+
 			"\nAvailable at http://github.com/russross/blackfriday\n\n"+
-			"Copyright © 2011 Russ Ross <russ@russross.com>\n"+
+			"Copyright © 2011-2015 Russ Ross <russ@russross.com> and contributors\n"+
 			"Distributed under the Simplified BSD License\n"+
 			"See website for details\n\n"+
 			"Usage:\n"+
@@ -133,6 +135,7 @@ func main() {
 	extensions |= blackfriday.EXTENSION_STRIKETHROUGH
 	extensions |= blackfriday.EXTENSION_SPACE_HEADERS
 	extensions |= blackfriday.EXTENSION_HEADER_IDS
+	extensions |= blackfriday.EXTENSION_FOOTNOTES
 
 	var renderer blackfriday.Renderer
 	if latex {
@@ -167,15 +170,15 @@ func main() {
 		if toc {
 			htmlFlags |= blackfriday.HTML_TOC
 		}
+		if embed {
+			htmlFlags |= blackfriday.HTML_EMBED_CSS
+		}
 
 		// Determine which anchor generator to use.
 		sanitizeMap := map[string]func(string) string{
 			"legacy": sanitized_anchor_name.Create,
 			"github": markdownutils.CreateGitHubAnchor,
 			"gitlab": markdownutils.CreateGitLabAnchor,
-			// undocumented aliases:
-			"hub": markdownutils.CreateGitHubAnchor,
-			"lab": markdownutils.CreateGitLabAnchor,
 		}
 		sanitize := sanitizeMap[anchorstyle]
 		if sanitize == nil {
