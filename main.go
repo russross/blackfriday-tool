@@ -18,19 +18,22 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/russross/blackfriday"
 	"io/ioutil"
 	"os"
 	"runtime/pprof"
 	"strings"
+
+	"github.com/TomOnTime/markdownutils"
+	"github.com/russross/blackfriday"
+	"github.com/shurcooL/sanitized_anchor_name"
 )
 
 const DEFAULT_TITLE = ""
 
 func main() {
 	// parse command-line options
-	var page, toc, toconly, xhtml, latex, smartypants, latexdashes, fractions bool
-	var css, cpuprofile string
+	var page, toc, toconly, mdtoc, xhtml, latex, smartypants, latexdashes, fractions bool
+	var css, cpuprofile, anchorstyle string
 	var repeat int
 	flag.BoolVar(&page, "page", false,
 		"Generate a standalone HTML page (implies -latex=false)")
@@ -38,6 +41,10 @@ func main() {
 		"Generate a table of contents (implies -latex=false)")
 	flag.BoolVar(&toconly, "toconly", false,
 		"Generate a table of contents only (implies -toc)")
+	flag.BoolVar(&mdtoc, "mdtoc", false,
+		"Generate a Markdown table of contents only (implies -toc -toconly -latex=false)")
+	flag.StringVar(&anchorstyle, "anchorstyle", "gitlab",
+		"When used with -mdtoc selects compatibility: gitlab, github, legacy")
 	flag.BoolVar(&xhtml, "xhtml", true,
 		"Use XHTML-style tags in HTML output")
 	flag.BoolVar(&latex, "latex", false,
@@ -79,6 +86,11 @@ func main() {
 		toc = true
 	}
 	if toc {
+		latex = false
+	}
+	if mdtoc {
+		toc = true
+		toconly = true
 		latex = false
 	}
 
@@ -145,13 +157,33 @@ func main() {
 			htmlFlags |= blackfriday.HTML_COMPLETE_PAGE
 			title = getTitle(input)
 		}
+		if mdtoc {
+			htmlFlags |= blackfriday.HTML_TOC_MD
+		}
 		if toconly {
 			htmlFlags |= blackfriday.HTML_OMIT_CONTENTS
 		}
 		if toc {
 			htmlFlags |= blackfriday.HTML_TOC
 		}
-		renderer = blackfriday.HtmlRenderer(htmlFlags, title, css)
+
+		// Determine which anchor generator to use.
+		sanitizeMap := map[string]func(string) string{
+			"legacy": sanitized_anchor_name.Create,
+			"github": markdownutils.CreateGitHubAnchor,
+			"gitlab": markdownutils.CreateGitLabAnchor,
+			// undocumented aliases:
+			"hub": markdownutils.CreateGitHubAnchor,
+			"lab": markdownutils.CreateGitLabAnchor,
+		}
+		sanitize := sanitizeMap[anchorstyle]
+		if sanitize == nil {
+			fmt.Fprintln(os.Stderr, "Not a valid -anchorstyle:", anchorstyle)
+			os.Exit(-1)
+		}
+
+		renderer = blackfriday.HtmlRendererWithParameters(htmlFlags, title, css,
+			blackfriday.HtmlRendererParameters{SanitizedAnchorNameOverride: sanitize})
 	}
 
 	// parse and render
